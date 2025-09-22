@@ -4,7 +4,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header('Content-Type: application/json');
 
-// Importar la conexión a la base de datos
+// Importar la conexión a la base de datos PostgreSQL
 include 'db.php';
 
 // Leer JSON enviado por el ESP32

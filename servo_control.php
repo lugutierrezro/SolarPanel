@@ -4,7 +4,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
-require "db.php"; // conexión a la base de datos
+require "db.php"; // conexión a la base de datos PostgreSQL
 
 $method = $_SERVER['REQUEST_METHOD'];
 

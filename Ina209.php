@@ -2,8 +2,8 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 
-// Conexión a la base de datos
-include 'bd.php'; // Tu conexión ya existente
+// Conexión a la base de datos PostgreSQL
+include 'db.php'; // tu db.php con PDO pgsql
 
 // Leer datos enviados por POST
 $input = file_get_contents("php://input");
@@ -15,20 +15,21 @@ if(isset($data['voltaje']) && isset($data['corriente']) && isset($data['potencia
     $corriente = $data['corriente'];
     $potencia = $data['potencia'];
     
-    $sql = "INSERT INTO panel_solar (voltaje, corriente, potencia) VALUES (?, ?, ?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ddd", $voltaje, $corriente, $potencia);
-    
-    if($stmt->execute()) {
+    try {
+        $sql = "INSERT INTO panel_solar (voltaje, corriente, potencia) VALUES (:v, :c, :p)";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':v' => $voltaje,
+            ':c' => $corriente,
+            ':p' => $potencia
+        ]);
+
         echo json_encode(["status" => "success", "message" => "Datos guardados correctamente"]);
-    } else {
-        echo json_encode(["status" => "error", "message" => "Error al guardar los datos"]);
+    } catch (PDOException $e) {
+        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     }
     
-    $stmt->close();
 } else {
     echo json_encode(["status" => "error", "message" => "Datos incompletos"]);
 }
-
-$conn->close();
 ?>

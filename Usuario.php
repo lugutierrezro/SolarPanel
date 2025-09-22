@@ -4,7 +4,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-require 'db.php';
+require 'db.php'; // conexión PostgreSQL PDO
 
 // Leer datos JSON del POST
 $data = json_decode(file_get_contents("php://input"), true);
@@ -50,7 +50,4 @@ if (password_verify($password, $user['password'])) {
 } else {
     echo json_encode(["error" => "Contraseña incorrecta"]);
 }
-
-
-
 ?>
