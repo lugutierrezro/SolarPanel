@@ -1,15 +1,20 @@
 <?php
+// Permitir CORS y JSON
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 
-require "db.php"; // conexión PDO a PostgreSQL
+// Incluir conexión PDO a PostgreSQL
+require "db.php";
 
 try {
+    // ====== POST: guardar nueva posición ======
     if ($_SERVER["REQUEST_METHOD"] === "POST") {
-        // 📩 Guardar nueva posición
         $input = json_decode(file_get_contents('php://input'), true);
+
+        // Debug opcional: guardar lo que llega
+        // file_put_contents("debug.txt", date('Y-m-d H:i:s') . " POST: " . json_encode($input) . "\n", FILE_APPEND);
 
         if (isset($input['servoPos'])) {
             $servoPos = intval($input['servoPos']);
@@ -31,8 +36,8 @@ try {
             ]);
         }
 
+    // ====== GET: leer último valor ======
     } elseif ($_SERVER["REQUEST_METHOD"] === "GET") {
-        // 📤 Leer último valor
         $sql = "SELECT servoPos, created_at 
                 FROM servo_movements 
                 ORDER BY id DESC LIMIT 1";
@@ -53,6 +58,7 @@ try {
             ]);
         }
 
+    // ====== Otros métodos ======
     } else {
         echo json_encode([
             "status" => "error",
