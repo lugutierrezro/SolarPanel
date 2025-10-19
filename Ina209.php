@@ -2,18 +2,16 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
 
-// Conexión a la base de datos PostgreSQL
-include 'db.php'; // tu db.php con PDO pgsql
+include 'db.php'; // tu conexión PDO pgsql
 
-// Leer datos enviados por POST
 $input = file_get_contents("php://input");
 $data = json_decode($input, true);
 
-if(isset($data['voltaje']) && isset($data['corriente']) && isset($data['potencia'])) {
+if(isset($data['voltage']) && isset($data['current']) && isset($data['power'])) {
     
-    $voltaje = $data['voltaje'];
-    $corriente = $data['corriente'];
-    $potencia = $data['potencia'];
+    $voltaje = $data['voltage'];
+    $corriente = $data['current'];
+    $potencia = $data['power'];
     
     try {
         $sql = "INSERT INTO panel_solar (voltaje, corriente, potencia) VALUES (:v, :c, :p)";
