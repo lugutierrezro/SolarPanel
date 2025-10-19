@@ -32,7 +32,7 @@ try {
             $corriente = floatval($data['current']);
             $potencia = floatval($data['power']);
             
-            $sql = "INSERT INTO panel_solar (voltaje, corriente, potencia, created_at) VALUES (:v, :c, :p, NOW())";
+            $sql = "INSERT INTO panel_solar (voltaje, corriente, potencia) VALUES (:v, :c, :p)";
             $stmt = $conn->prepare($sql);
             $stmt->execute([
                 ':v' => $voltaje,
@@ -90,3 +90,4 @@ try {
     ]);
 }
 ?>
+
