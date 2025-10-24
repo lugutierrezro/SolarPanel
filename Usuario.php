@@ -16,42 +16,49 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'POST') {
-        // REGISTRAR USUARIO
+        // LOGIN DE USUARIO
         $data = json_decode(file_get_contents("php://input"), true);
 
-        if (!$data || !isset($data['nombre'], $data['email'], $data['password'])) {
-            echo json_encode(["error" => "Nombre, email y contraseña requeridos"]);
+        if (!$data || !isset($data['email'], $data['password'])) {
+            echo json_encode(["error" => "Email y contraseña requeridos"]);
             exit();
         }
 
-        $nombre = trim($data['nombre']);
         $email = trim($data['email']);
-        $password = password_hash(trim($data['password']), PASSWORD_DEFAULT);
+        $password = trim($data['password']);
 
-        // Verificar si ya existe el email
-        $check = $conn->prepare("SELECT id FROM usuarios WHERE email = :email LIMIT 1");
-        $check->bindParam(':email', $email);
-        $check->execute();
+        // Buscar usuario en la base de datos
+        $stmt = $conn->prepare("SELECT * FROM usuarios WHERE email = :email LIMIT 1");
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($check->fetch(PDO::FETCH_ASSOC)) {
-            echo json_encode(["error" => "El email ya está registrado"]);
+        if (!$user) {
+            echo json_encode(["error" => "Usuario no encontrado"]);
             exit();
         }
 
-        // Insertar usuario
-        $stmt = $conn->prepare("INSERT INTO usuarios (nombre, email, password) VALUES (:nombre, :email, :password)");
-        $stmt->bindParam(':nombre', $nombre);
-        $stmt->bindParam(':email', $email);
-        $stmt->bindParam(':password', $password);
+        // Verificar la contraseña hasheada
+        if (password_verify($password, $user['password'])) {
+            // Generar token simple
+            $token = bin2hex(random_bytes(16));
 
-        if ($stmt->execute()) {
+            // Actualizar token en DB
+            $update = $conn->prepare("UPDATE usuarios SET token = :token, last_login = NOW() WHERE id = :id");
+            $update->bindParam(':token', $token);
+            $update->bindParam(':id', $user['id']);
+            $update->execute();
+
+            // Retornar JSON con usuario
             echo json_encode([
-                "success" => "Usuario registrado correctamente",
-                "nombre" => $nombre,
-                "email" => $email
+                "id" => intval($user['id']),
+                "nombre" => $user['nombre'],
+                "email" => $user['email'],
+                "tipo" => $user['tipo'],
+                "token" => $token
             ]);
         } else {
-            echo json_encode(["error" => "Error al registrar usuario"]);
+            echo json_encode(["error" => "Contraseña incorrecta"]);
         }
 
     } elseif ($method === 'GET') {
