@@ -4,19 +4,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type");
 
-// Conexión a PostgreSQL
-$host = "dpg-d38bpinfte5s73buuht0-a.oregon-postgres.render.com";
-$port = "5432";
-$dbname = "solarpanel";
-$user = "solarpanel_user";
-$password = "oBsuyBBYSmxFICCdUxWOb97QK49EeAxG";
-
-$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
-if (!$conn) {
-    http_response_code(500);
-    echo json_encode(["status" => "error", "message" => "No se pudo conectar a la base de datos"]);
-    exit();
-}
+include 'db.php';
 
 // Leer POST JSON
 $input = json_decode(file_get_contents('php://input'), true);
@@ -46,3 +34,4 @@ if ($result) {
 
 pg_close($conn);
 ?>
+
