@@ -8,8 +8,12 @@ $pass = "96OYZO1ww8FHmu27zB7xheuYIKOCTB1W";
 $port = "5432";
 
 try {
-    // Conexión PDO
-    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$db", $user, $pass);
+    // Conexión PDO con SSL
+    $conn = new PDO(
+        "pgsql:host=$host;port=$port;dbname=$db;sslmode=require",
+        $user,
+        $pass
+    );
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Consulta de prueba
@@ -18,7 +22,7 @@ try {
 
     echo json_encode([
         "status" => "success",
-        "message" => "Conexión exitosa a la base de datos",
+        "message" => "Conexión exitosa a la base de datos con SSL",
         "test" => $result
     ]);
 
