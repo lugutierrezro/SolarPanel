@@ -5,7 +5,7 @@ $host = "dpg-d3ttdbmuk2gs73del1vg-a.oregon-postgres.render.com";
 $port = "5432";
 $db   = "solpanel_8cdl";
 $user = "solpanel_8cdl_user";
-$pass = "96OYZO1ww8FHmu27zB7xheuYIKOCTB1W";
+$pass = "96OYZO1ww8FHmu27zB7xheuYikoCTB1W";
 
 try {
     $conn = new PDO(
@@ -32,3 +32,4 @@ try {
     ]);
 }
 ?>
+
