@@ -4,16 +4,17 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET");
 header("Access-Control-Allow-Headers: Content-Type");
 
-include 'db.php'; 
+include 'db.php'; // db.php debe crear $conn como PDO
 
 // Parámetros de consulta
 $range = isset($_GET['range']) ? $_GET['range'] : 'day'; // day, week, month, hour
 $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 20;
 
 $query = "";
+$params = [];
+
 switch ($range) {
     case 'hour':
-        // Últimas lecturas de la última hora
         $query = "SELECT 
                     id,
                     timestamp,
@@ -25,11 +26,11 @@ switch ($range) {
                   FROM sensor_readings
                   WHERE timestamp >= NOW() - INTERVAL '1 hour'
                   ORDER BY timestamp DESC
-                  LIMIT $limit";
+                  LIMIT :limit";
+        $params[':limit'] = $limit;
         break;
     
     case 'day':
-        // Últimas lecturas del día (cada 5 minutos aproximadamente)
         $query = "SELECT 
                     id,
                     timestamp,
@@ -41,11 +42,11 @@ switch ($range) {
                   FROM sensor_readings
                   WHERE timestamp >= NOW() - INTERVAL '1 day'
                   ORDER BY timestamp DESC
-                  LIMIT $limit";
+                  LIMIT :limit";
+        $params[':limit'] = $limit;
         break;
     
     case 'week':
-        // Promedio por hora de la última semana
         $query = "SELECT 
                     date_trunc('hour', timestamp) AS timestamp,
                     AVG(voltage) AS voltage,
@@ -57,11 +58,11 @@ switch ($range) {
                   WHERE timestamp >= NOW() - INTERVAL '1 week'
                   GROUP BY date_trunc('hour', timestamp)
                   ORDER BY timestamp DESC
-                  LIMIT $limit";
+                  LIMIT :limit";
+        $params[':limit'] = $limit;
         break;
     
     case 'month':
-        // Promedio por día del último mes
         $query = "SELECT 
                     date_trunc('day', timestamp) AS timestamp,
                     AVG(voltage) AS voltage,
@@ -73,11 +74,11 @@ switch ($range) {
                   WHERE timestamp >= NOW() - INTERVAL '1 month'
                   GROUP BY date_trunc('day', timestamp)
                   ORDER BY timestamp DESC
-                  LIMIT $limit";
+                  LIMIT :limit";
+        $params[':limit'] = $limit;
         break;
     
     case 'latest':
-        // Última lectura
         $query = "SELECT 
                     id,
                     timestamp,
@@ -97,37 +98,40 @@ switch ($range) {
         exit();
 }
 
-$result = pg_query($conn, $query);
+try {
+    $stmt = $conn->prepare($query);
 
-if (!$result) {
+    // Bind de parámetros
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_INT);
+    }
+
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $readings = [];
+    foreach ($rows as $row) {
+        $readings[] = [
+            "timestamp" => $row['timestamp'],
+            "voltage" => floatval($row['voltage']),
+            "current" => floatval($row['current']),
+            "power" => floatval($row['power']),
+            "temperature" => floatval($row['temperature']),
+            "humidity" => floatval($row['humidity'])
+        ];
+    }
+
+    // Invertir para que los datos más antiguos estén primero
+    $readings = array_reverse($readings);
+
+    echo json_encode([
+        "status" => "success",
+        "range" => $range,
+        "count" => count($readings),
+        "data" => $readings
+    ]);
+} catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(["status" => "error", "message" => "Error al consultar datos"]);
-    exit();
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
-
-$readings = [];
-while ($row = pg_fetch_assoc($result)) {
-    $readings[] = [
-        "timestamp" => $row['timestamp'],
-        "voltage" => floatval($row['voltage']),
-        "current" => floatval($row['current']),
-        "power" => floatval($row['power']),
-        "temperature" => floatval($row['temperature']),
-        "humidity" => floatval($row['humidity'])
-    ];
-}
-
-// Invertir para que los datos más antiguos estén primero
-$readings = array_reverse($readings);
-
-echo json_encode([
-    "status" => "success",
-    "range" => $range,
-    "count" => count($readings),
-    "data" => $readings
-]);
-
-pg_close($conn);
-
 ?>
-
