@@ -6,13 +6,6 @@ header("Access-Control-Allow-Headers: Content-Type");
 
 include 'db.php'; 
 
-$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
-if (!$conn) {
-    http_response_code(500);
-    echo json_encode(["status" => "error", "message" => "No se pudo conectar a la base de datos"]);
-    exit();
-}
-
 // Parámetros de consulta
 $range = isset($_GET['range']) ? $_GET['range'] : 'day'; // day, week, month, hour
 $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 20;
@@ -137,3 +130,4 @@ echo json_encode([
 pg_close($conn);
 
 ?>
+
