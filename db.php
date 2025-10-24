@@ -2,13 +2,12 @@
 header("Content-Type: application/json");
 
 $host = "dpg-d3ttdbmuk2gs73del1vg-a.oregon-postgres.render.com";
+$port = "5432";
 $db   = "solpanel_8cdl";
 $user = "solpanel_8cdl_user";
 $pass = "96OYZO1ww8FHmu27zB7xheuYIKOCTB1W";
-$port = "5432";
 
 try {
-    // Conexión PDO con SSL
     $conn = new PDO(
         "pgsql:host=$host;port=$port;dbname=$db;sslmode=require",
         $user,
