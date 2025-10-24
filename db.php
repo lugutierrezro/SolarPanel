@@ -19,12 +19,6 @@ try {
     $stmt = $conn->query("SELECT 1 AS test");
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    echo json_encode([
-        "status" => "success",
-        "message" => "Conexión exitosa a la base de datos con SSL",
-        "test" => $result
-    ]);
-
 } catch (PDOException $e) {
     echo json_encode([
         "status" => "error",
@@ -32,4 +26,5 @@ try {
     ]);
 }
 ?>
+
 
