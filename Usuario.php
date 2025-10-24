@@ -1,53 +1,56 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 require 'db.php'; // conexión PostgreSQL PDO
 
-// Leer datos JSON del POST
-$data = json_decode(file_get_contents("php://input"), true);
+$method = $_SERVER['REQUEST_METHOD'];
 
-if (!$data || !isset($data['email']) || !isset($data['password'])) {
-    echo json_encode(["error" => "Email y contraseña requeridos"]);
-    exit();
-}
+if ($method === 'POST') {
+    // REGISTRAR USUARIO
+    $data = json_decode(file_get_contents("php://input"), true);
 
-$email = trim($data['email']);
-$password = trim($data['password']);
+    if (!$data || !isset($data['nombre']) || !isset($data['email']) || !isset($data['password'])) {
+        echo json_encode(["error" => "Nombre, email y contraseña requeridos"]);
+        exit();
+    }
 
-// Buscar usuario en la base de datos
-$stmt = $conn->prepare("SELECT * FROM usuarios WHERE email = :email LIMIT 1");
-$stmt->bindParam(':email', $email);
-$stmt->execute();
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $nombre = trim($data['nombre']);
+    $email = trim($data['email']);
+    $password = password_hash(trim($data['password']), PASSWORD_DEFAULT);
 
-if (!$user) {
-    echo json_encode(["error" => "Usuario no encontrado"]);
-    exit();
-}
+    // Verificar si ya existe el email
+    $check = $conn->prepare("SELECT * FROM usuarios WHERE email = :email LIMIT 1");
+    $check->bindParam(':email', $email);
+    $check->execute();
+    if ($check->fetch(PDO::FETCH_ASSOC)) {
+        echo json_encode(["error" => "El email ya está registrado"]);
+        exit();
+    }
 
-// Verificar la contraseña hasheada
-if (password_verify($password, $user['password'])) {
-    // Generar token simple (mejorar con JWT en producción)
-    $token = bin2hex(random_bytes(16));
+    // Insertar usuario
+    $stmt = $conn->prepare("INSERT INTO usuarios (nombre, email, password) VALUES (:nombre, :email, :password)");
+    $stmt->bindParam(':nombre', $nombre);
+    $stmt->bindParam(':email', $email);
+    $stmt->bindParam(':password', $password);
+    
+    if ($stmt->execute()) {
+        echo json_encode(["success" => "Usuario registrado correctamente", "nombre" => $nombre, "email" => $email]);
+    } else {
+        echo json_encode(["error" => "Error al registrar usuario"]);
+    }
 
-    // Actualizar token en DB
-    $update = $conn->prepare("UPDATE usuarios SET token = :token WHERE id = :id");
-    $update->bindParam(':token', $token);
-    $update->bindParam(':id', $user['id']);
-    $update->execute();
+} elseif ($method === 'GET') {
+    // LISTAR USUARIOS
+    $stmt = $conn->prepare("SELECT id, nombre, email, tipo FROM usuarios ORDER BY id ASC");
+    $stmt->execute();
+    $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Retornar JSON con usuario
-    echo json_encode([
-        "id" => intval($user['id']),
-        "nombre" => $user['nombre'],
-        "email" => $user['email'],
-        "tipo" => $user['tipo'],
-        "token" => $token
-    ]);
+    echo json_encode($usuarios);
+
 } else {
-    echo json_encode(["error" => "Contraseña incorrecta"]);
+    echo json_encode(["error" => "Método no permitido"]);
 }
 ?>
