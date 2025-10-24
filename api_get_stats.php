@@ -4,12 +4,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET");
 header("Access-Control-Allow-Headers: Content-Type");
 
-// Conexión a PostgreSQL
-$host = "dpg-d38bpinfte5s73buuht0-a.oregon-postgres.render.com";
-$port = "5432";
-$dbname = "solarpanel";
-$user = "solarpanel_user";
-$password = "oBsuyBBYSmxFICCdUxWOb97QK49EeAxG";
+include 'db.php'; 
 
 $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
 if (!$conn) {
@@ -96,4 +91,5 @@ echo json_encode([
 ]);
 
 pg_close($conn);
+
 ?>
