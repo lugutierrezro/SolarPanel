@@ -4,6 +4,12 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
+// Manejar preflight OPTIONS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 require 'db.php'; // conexión PostgreSQL PDO
 
 try {
@@ -39,7 +45,11 @@ try {
         $stmt->bindParam(':password', $password);
 
         if ($stmt->execute()) {
-            echo json_encode(["success" => "Usuario registrado correctamente", "nombre" => $nombre, "email" => $email]);
+            echo json_encode([
+                "success" => "Usuario registrado correctamente",
+                "nombre" => $nombre,
+                "email" => $email
+            ]);
         } else {
             echo json_encode(["error" => "Error al registrar usuario"]);
         }
@@ -57,6 +67,6 @@ try {
     }
 
 } catch (Exception $e) {
-    // Siempre devolver JSON aunque haya error
     echo json_encode(["error" => $e->getMessage()]);
 }
+?>
