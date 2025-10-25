@@ -20,17 +20,6 @@ if (!$data || !isset($data["ip"]) || !isset($data["ssid"]) || !isset($data["mac"
 }
 
 try {
-    // Crear tabla si no existe
-    $conn->exec("
-        CREATE TABLE IF NOT EXISTS esp32cam_ips (
-            id BIGSERIAL PRIMARY KEY,
-            ip VARCHAR(45) NOT NULL,
-            ssid VARCHAR(255),
-            mac VARCHAR(17) UNIQUE,
-            last_update TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    ");
-
     $sql = "
         INSERT INTO esp32cam_ips (mac, ssid, ip, last_update)
         VALUES (:mac, :ssid, :ip, NOW())
