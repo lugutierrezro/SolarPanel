@@ -4,7 +4,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 
-// Si el método es OPTIONS, solo responde (para CORS)
+// Responder OPTIONS (CORS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -12,9 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require 'db.php';
 
-
-
-// Leer cuerpo JSON enviado por ESP32-CAM
+// Leer JSON enviado por ESP32-CAM
 $input = file_get_contents("php://input");
 $data = json_decode($input, true);
 
@@ -23,37 +21,43 @@ if (!$data || !isset($data["ip"]) || !isset($data["ssid"]) || !isset($data["mac"
     exit();
 }
 
-$ip = $conn->real_escape_string($data["ip"]);
-$ssid = $conn->real_escape_string($data["ssid"]);
-$mac = $conn->real_escape_string($data["mac"]);
+// Preparar SQL con parámetros (PDO)
+try {
+    // Crear tabla si no existe
+    $conn->exec("
+        CREATE TABLE IF NOT EXISTS esp32_cam_devices (
+            id SERIAL PRIMARY KEY,
+            mac VARCHAR(50) UNIQUE,
+            ssid VARCHAR(100),
+            ip VARCHAR(50),
+            last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
 
-// Crear tabla si no existe
-$conn->query("
-    CREATE TABLE IF NOT EXISTS esp32_cam_devices (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        mac VARCHAR(50) UNIQUE,
-        ssid VARCHAR(100),
-        ip VARCHAR(50),
-        last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-");
+    // Insertar o actualizar
+    $sql = "
+        INSERT INTO esp32_cam_devices (mac, ssid, ip, last_update)
+        VALUES (:mac, :ssid, :ip, CURRENT_TIMESTAMP)
+        ON CONFLICT (mac)
+        DO UPDATE SET ssid = EXCLUDED.ssid, ip = EXCLUDED.ip, last_update = CURRENT_TIMESTAMP
+    ";
 
-// Insertar o actualizar el dispositivo
-$sql = "
-    INSERT INTO esp32_cam_devices (mac, ssid, ip)
-    VALUES ('$mac', '$ssid', '$ip')
-    ON DUPLICATE KEY UPDATE ssid = VALUES(ssid), ip = VALUES(ip), last_update = CURRENT_TIMESTAMP
-";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([
+        ':mac' => $data['mac'],
+        ':ssid' => $data['ssid'],
+        ':ip' => $data['ip']
+    ]);
 
-if ($conn->query($sql) === TRUE) {
     echo json_encode([
         "status" => "success",
         "message" => "Dispositivo actualizado correctamente",
-        "data" => ["ip" => $ip, "ssid" => $ssid, "mac" => $mac]
+        "data" => ["ip" => $data["ip"], "ssid" => $data["ssid"], "mac" => $data["mac"]]
     ]);
-} else {
-    echo json_encode(["status" => "error", "message" => "Error SQL: " . $conn->error]);
+
+} catch (PDOException $e) {
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
 
-$conn->close();
+$conn = null;
 ?>
