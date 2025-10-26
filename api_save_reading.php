@@ -1,105 +1,132 @@
 <?php
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET");
-header("Access-Control-Allow-Headers: Content-Type");
+// api_save_reading.php - Guardar nuevas lecturas
+header('Content-Type: application/json; charset=UTF-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-
-include 'db.php'; 
-
-// Parámetros de consulta
-$range = isset($_GET['range']) ? $_GET['range'] : 'day'; // day, week, month, hour
-$limit = isset($_GET['limit']) ? intval($_GET['limit']) : 20;
-
-$query = "";
-switch ($range) {
-    case 'hour':
-        $query = "SELECT id, timestamp, voltage, current, power, temperature, humidity
-                  FROM sensor_readings
-                  WHERE timestamp >= NOW() - INTERVAL '1 hour'
-                  ORDER BY timestamp DESC
-                  LIMIT :limit";
-        break;
-
-    case 'day':
-        $query = "SELECT id, timestamp, voltage, current, power, temperature, humidity
-                  FROM sensor_readings
-                  WHERE timestamp >= NOW() - INTERVAL '1 day'
-                  ORDER BY timestamp DESC
-                  LIMIT :limit";
-        break;
-
-    case 'week':
-        $query = "SELECT date_trunc('hour', timestamp) AS timestamp,
-                         AVG(voltage) AS voltage,
-                         AVG(current) AS current,
-                         AVG(power) AS power,
-                         AVG(temperature) AS temperature,
-                         AVG(humidity) AS humidity
-                  FROM sensor_readings
-                  WHERE timestamp >= NOW() - INTERVAL '1 week'
-                  GROUP BY date_trunc('hour', timestamp)
-                  ORDER BY timestamp DESC
-                  LIMIT :limit";
-        break;
-
-    case 'month':
-        $query = "SELECT date_trunc('day', timestamp) AS timestamp,
-                         AVG(voltage) AS voltage,
-                         AVG(current) AS current,
-                         AVG(power) AS power,
-                         AVG(temperature) AS temperature,
-                         AVG(humidity) AS humidity
-                  FROM sensor_readings
-                  WHERE timestamp >= NOW() - INTERVAL '1 month'
-                  GROUP BY date_trunc('day', timestamp)
-                  ORDER BY timestamp DESC
-                  LIMIT :limit";
-        break;
-
-    case 'latest':
-        $query = "SELECT id, timestamp, voltage, current, power, temperature, humidity
-                  FROM sensor_readings
-                  ORDER BY timestamp DESC
-                  LIMIT 1";
-        break;
-
-    default:
-        http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "Rango no válido"]);
-        exit();
+// Manejar preflight request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
-// Preparar y ejecutar con PDO
+// Solo permitir POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'error', 'message' => 'Method not allowed. Use POST']);
+    exit;
+}
+
+require_once 'db.php';
+
 try {
-    $stmt = $conn->prepare($query);
-    if ($range !== 'latest') {
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    // Obtener datos del body (JSON)
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
+
+    // Validar que llegó JSON válido
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Invalid JSON: ' . json_last_error_msg()
+        ]);
+        exit;
     }
-    $stmt->execute();
-    $readings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Convertir valores a float y ordenar de más antiguo a más reciente
-    $readings = array_reverse(array_map(function($row){
-        return [
-            "timestamp" => $row['timestamp'],
-            "voltage" => isset($row['voltage']) ? floatval($row['voltage']) : null,
-            "current" => isset($row['current']) ? floatval($row['current']) : null,
-            "power" => isset($row['power']) ? floatval($row['power']) : null,
-            "temperature" => isset($row['temperature']) ? floatval($row['temperature']) : null,
-            "humidity" => isset($row['humidity']) ? floatval($row['humidity']) : null
-        ];
-    }, $readings));
+    // Validar campos requeridos
+    $required = ['voltage', 'current', 'power', 'temperature', 'humidity'];
+    $missing = [];
+    
+    foreach ($required as $field) {
+        if (!isset($data[$field]) && $data[$field] !== 0) {
+            $missing[] = $field;
+        }
+    }
 
-    echo json_encode([
-        "status" => "success",
-        "range" => $range,
-        "count" => count($readings),
-        "data" => $readings
+    if (!empty($missing)) {
+        http_response_code(400);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Missing required fields: ' . implode(', ', $missing)
+        ]);
+        exit;
+    }
+
+    // Validar que sean números válidos
+    $voltage = floatval($data['voltage']);
+    $current = floatval($data['current']);
+    $power = floatval($data['power']);
+    $temperature = floatval($data['temperature']);
+    $humidity = floatval($data['humidity']);
+
+    // Validaciones de rango (opcional pero recomendado)
+    if ($voltage < 0 || $voltage > 50) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Voltage out of range (0-50V)']);
+        exit;
+    }
+
+    if ($humidity < 0 || $humidity > 100) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Humidity out of range (0-100%)']);
+        exit;
+    }
+
+    // Insertar en la base de datos
+    $stmt = $conn->prepare("
+        INSERT INTO sensor_readings (voltage, current, power, temperature, humidity, timestamp)
+        VALUES (:voltage, :current, :power, :temperature, :humidity, NOW())
+        RETURNING id, timestamp
+    ");
+
+    $stmt->execute([
+        ':voltage' => $voltage,
+        ':current' => $current,
+        ':power' => $power,
+        ':temperature' => $temperature,
+        ':humidity' => $humidity
     ]);
+
+    $inserted = $stmt->fetch();
+
+    if ($inserted) {
+        http_response_code(201);
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Reading saved successfully',
+            'data' => [
+                'id' => intval($inserted['id']),
+                'timestamp' => $inserted['timestamp'],
+                'values' => [
+                    'voltage' => $voltage,
+                    'current' => $current,
+                    'power' => $power,
+                    'temperature' => $temperature,
+                    'humidity' => $humidity
+                ]
+            ]
+        ], JSON_PRETTY_PRINT);
+    } else {
+        http_response_code(500);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to save reading'
+        ]);
+    }
 
 } catch (PDOException $e) {
     http_response_code(500);
-    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Database error: ' . $e->getMessage()
+    ]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Server error: ' . $e->getMessage()
+    ]);
 }
 ?>
